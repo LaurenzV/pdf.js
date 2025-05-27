@@ -591,6 +591,7 @@ function decodeSymbolDictionary(
   decodingContext,
   huffmanInput
 ) {
+  // console.log(huffmanInput);
   if (huffman && refinement) {
     throw new Jbig2Error("symbol refinement with Huffman is not supported");
   }
@@ -1097,6 +1098,7 @@ function decodeHalftoneRegion(
         decodingContext
       );
     }
+    // printBitmap(bitmap);
     grayScaleBitPlanes[i] = bitmap;
   }
   // 6.6.5.2 Rendering the patterns.
@@ -1106,10 +1108,12 @@ function decodeHalftoneRegion(
       bit = 0;
       patternIndex = 0;
       for (j = bitsPerValue - 1; j >= 0; j--) {
+        // console.log(grayScaleBitPlanes[j][mg][ng])
         bit ^= grayScaleBitPlanes[j][mg][ng]; // Gray decoding
         patternIndex |= bit << j;
       }
       patternBitmap = patterns[patternIndex];
+      // printBitmap(patternBitmap);
       x = (gridOffsetX + mg * gridVectorY + ng * gridVectorX) >> 8;
       y = (gridOffsetY + mg * gridVectorX - ng * gridVectorY) >> 8;
       // Draw patternBitmap at (x, y).
@@ -1125,6 +1129,8 @@ function decodeHalftoneRegion(
           for (j = 0; j < patternWidth; j++) {
             regionRow[x + j] |= patternRow[j];
           }
+          // console.log(regionRow);
+          // continue;
         }
       } else {
         let regionX, regionY;
@@ -1298,6 +1304,7 @@ function processSegment(segment, visitor) {
     end = segment.end;
   let position = segment.start;
   let args, at, i, atLength;
+  // console.log("visiting segment " + header);
   switch (header.type) {
     case 0: // SymbolDictionary
       // 7.4.2 Symbol dictionary segment syntax
@@ -1504,6 +1511,11 @@ function processSegment(segment, visitor) {
 function processSegments(segments, visitor) {
   for (let i = 0, ii = segments.length; i < ii; i++) {
     processSegment(segments[i], visitor);
+    if (visitor.buffer) {
+      // console.log(visitor.buffer.subarray(122, 126));
+    } else {
+      // console.log(visitor.buffer);
+    }
   }
 }
 
@@ -1651,6 +1663,14 @@ class SimpleSegmentVisitor {
       region.at,
       decodingContext
     );
+    //
+    // for (let i = 0; i < bitmap.length; i++) {
+    //   for (let j = 0; j < bitmap[i].length; j++) {
+    //     process.stdout.write("" + bitmap[i][j]);
+    //   }
+    //   console.log();
+    // }
+
     this.drawBitmap(regionInfo, bitmap);
   }
 
@@ -1693,7 +1713,8 @@ class SimpleSegmentVisitor {
     }
 
     const decodingContext = new DecodingContext(data, start, end);
-    symbols[currentSegment] = decodeSymbolDictionary(
+    // console.log("current segment " + currentSegment);
+    const result = decodeSymbolDictionary(
       dictionary.huffman,
       dictionary.refinement,
       inputSymbols,
@@ -1707,6 +1728,8 @@ class SimpleSegmentVisitor {
       decodingContext,
       huffmanInput
     );
+    // console.log(result);
+    symbols[currentSegment] = result
   }
 
   onImmediateTextRegion(region, referredSegments, data, start, end) {
@@ -1779,6 +1802,12 @@ class SimpleSegmentVisitor {
       dictionary.template,
       decodingContext
     );
+
+    // for(let i = 0; i < patterns[currentSegment].length; i++) {
+    //   printBitmap(patterns[currentSegment][i]);
+    // }
+
+    return;
   }
 
   onImmediateHalftoneRegion(region, referredSegments, data, start, end) {
@@ -1803,6 +1832,9 @@ class SimpleSegmentVisitor {
       region.gridVectorY,
       decodingContext
     );
+
+    // printBitmap(bitmap);
+
     this.drawBitmap(regionInfo, bitmap);
   }
 
@@ -1894,6 +1926,7 @@ class HuffmanTable {
     if (!prefixCodesDone) {
       this.assignPrefixCodes(lines);
     }
+    // console.log("creating tree with " + lines.length + " lines");
     // Create Huffman tree.
     this.rootNode = new HuffmanTreeNode(null);
     for (let i = 0, ii = lines.length; i < ii; i++) {
@@ -1902,6 +1935,7 @@ class HuffmanTable {
         this.rootNode.buildTree(line, line.prefixLength - 1);
       }
     }
+    // console.log(this.rootNode)
   }
 
   decode(reader) {
@@ -2550,6 +2584,7 @@ function decodeMMRBitmap(input, width, height, endOfBlock) {
     for (let x = 0; x < width; x++) {
       if (shift < 0) {
         currentByte = decoder.readNextChar();
+        // console.log("read byte " + currentByte);
         if (currentByte === -1) {
           // Set the rest of the bits to zero.
           currentByte = 0;
@@ -2572,6 +2607,8 @@ function decodeMMRBitmap(input, width, height, endOfBlock) {
     }
   }
 
+  // console.log("\n\n");
+
   return bitmap;
 }
 
@@ -2588,6 +2625,15 @@ class Jbig2Image {
     this.width = width;
     this.height = height;
     return imgData;
+  }
+}
+
+function printBitmap(bitmap) {
+  for (let i = 0; i < bitmap.length; i++) {
+    for (let j = 0; j < bitmap[i].length; j++) {
+      process.stdout.write("" + bitmap[i][j]);
+    }
+    console.log();
   }
 }
 
